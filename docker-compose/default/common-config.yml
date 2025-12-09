@@ -1,0 +1,35 @@
+services:
+#  network-deploy-service:
+#    networks:
+#      - vishalnarsinh
+#
+#  microservice-db-config:
+#    extends:
+#      service: network-deploy-service
+#    image: mysql:8.0
+#    healthcheck:
+#      test: [ "CMD","mysqladmin","ping","-h", "localhost" ]
+#      timeout: 10s
+#      retries: 10
+#      interval: 10s
+#      start_period: 10s
+#    environment:
+#      MYSQL_ROOT_PASSWORD: root
+
+  x-microservice-base-config: &microservice-base-config
+    networks:
+      - vishalnarsinh
+    deploy:
+      resources:
+        limits:
+          memory: 700m
+
+  microservice-configserver-config:
+    extends:
+      service: microservice-base-config
+    environment:
+      SPRING_PROFILES_ACTIVE: default
+      SPRING_CONFIG_IMPORT: configserver:http://configserver:8071/
+      SPRING_DATASOURCE_USERNAME: vishal
+      SPRING_DATASOURCE_PASSWORD: i2ig6swq
+      SPRING_DATASOURCE_URL: jdbc:mysql://mysqldb:3306/accountsdb

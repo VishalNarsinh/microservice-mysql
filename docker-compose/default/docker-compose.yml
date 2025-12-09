@@ -1,0 +1,94 @@
+x-service-base: &service-base
+  networks:
+    - vishalnarsinh
+  deploy:
+    resources:
+      limits:
+        memory: 700m
+
+x-microservice-env: &microservice-env
+  SPRING_PROFILES_ACTIVE: default
+  SPRING_CONFIG_IMPORT: "optional:configserver:http://configserver:8071/"
+
+services:
+  mysqldb:
+    <<: *service-base
+    container_name: mysqldb
+    image: mysql:8.0
+    ports:
+      - "3306:3306"
+    environment:
+      MYSQL_ROOT_PASSWORD: root
+    healthcheck:
+      test: [ "CMD", "mysqladmin", "ping", "-h", "localhost" ]
+      timeout: 10s
+      retries: 10
+      interval: 10s
+      start_period: 10s
+    volumes:
+      - ./init.sql:/docker-entrypoint-initdb.d/init.sql
+
+  configserver:
+    <<: *service-base
+    image: "vishalnarsinh/configserver:s7"
+    container_name: "configserver-ms"
+    ports:
+      - "8071:8071"
+    healthcheck:
+      test: "curl -f http://localhost:8071/actuator/health/readiness | grep UP || exit 1"
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+
+  accounts:
+    <<: *service-base
+    image: "vishalnarsinh/accounts:s7"
+    container_name: "account-ms"
+    ports:
+      - "8080:8080"
+    depends_on:
+      configserver:
+        condition: service_healthy
+      mysqldb:
+        condition: service_healthy
+    environment:
+      <<: *microservice-env
+      SPRING_APPLICATION_NAME: "accounts"
+      SPRING_DATASOURCE_URL: "jdbc:mysql://mysqldb:3306/${ACCOUNTS_DB}"
+
+  loans:
+    <<: *service-base
+    image: "vishalnarsinh/loans:s7"
+    container_name: "loans-ms"
+    ports:
+      - "8090:8090"
+    depends_on:
+      configserver:
+        condition: service_healthy
+      mysqldb:
+        condition: service_healthy
+    environment:
+      <<: *microservice-env
+      SPRING_APPLICATION_NAME: "loans"
+      SPRING_DATASOURCE_URL: "jdbc:mysql://mysqldb:3306/${LOANS_DB}"
+
+  cards:
+    <<: *service-base
+    image: "vishalnarsinh/cards:s7"
+    container_name: "cards-ms"
+    ports:
+      - "9000:9000"
+    depends_on:
+      configserver:
+        condition: service_healthy
+      mysqldb:
+        condition: service_healthy
+    environment:
+      <<: *microservice-env
+      SPRING_APPLICATION_NAME: "cards"
+      SPRING_DATASOURCE_URL: "jdbc:mysql://mysqldb:3306/${CARDS_DB}"
+
+networks:
+  vishalnarsinh:
+    driver: bridge
